@@ -740,13 +740,13 @@ def render_header():
                         border-radius: 16px;
                         margin-bottom: 8px;
                      " />
-                <div class="app-title">Advanced College Feedback System</div>
+                <div class="app-title">SJCET Feedback System</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
     else:
-        st.markdown('<h1 class="app-title">Advanced College Feedback System</h1>', unsafe_allow_html=True)
+        st.markdown('<h1 class="app-title">SJCET Feedback System</h1>', unsafe_allow_html=True)
 
 # -------------------------
 # LOGIN SCREEN (roles on main page)
