@@ -18,80 +18,81 @@ st.set_page_config(
 
 BASE_DIR = Path(__file__).parent
 
-# Your actual folder structure:
-# .../Adv Feedback/app.py
-# .../Adv Feedback/students_list/*.csv
-# .../Adv Feedback/faculty_list/*.csv
 STUDENTS_DIR = BASE_DIR / "students_list"
 FACULTY_DIR = BASE_DIR / "faculty_list"
 DB_PATH = BASE_DIR / "feedback.db"
 LOGO_PATH = BASE_DIR / "sjcet_logo.png"
 
 # -------------------------
-# THEME TOGGLE + GRADIENT
+# GLOBAL CSS (single theme, mobile-friendly, no sidebar)
 # -------------------------
 
-if "theme" not in st.session_state:
-    st.session_state["theme"] = "light"
-
-theme_choice = st.sidebar.radio(
-    "Theme",
-    ["Light", "Dark"],
-    index=0 if st.session_state["theme"] == "light" else 1,
-)
-st.session_state["theme"] = theme_choice.lower()
-
-common_css = """
+app_css = """
 <style>
-.stApp {
-    background-attachment: fixed;
+/* Hide Streamlit sidebar entirely */
+div[data-testid="stSidebar"] {
+    display: none !important;
 }
 
-/* center main content */
+/* Center main content, nice width for mobile + desktop */
 .block-container {
     max-width: 1100px;
     padding-top: 1.5rem;
-    padding-bottom: 2rem;
+    padding-bottom: 2.5rem;
+    margin-left: auto;
+    margin-right: auto;
 }
 
-/* round dataframes a bit */
+/* Background: teal gradient like your reference app */
+.stApp {
+    background: radial-gradient(circle at top,
+        #014451 0%,
+        #012b36 40%,
+        #02141d 80%);
+    color: #f9fafb;
+}
+
+/* Simple login / content card with white background */
+.login-card {
+    background: #ffffff;
+    color: #111827;
+    border-radius: 20px;
+    padding: 26px 26px 30px 26px;
+    box-shadow: 0 22px 70px rgba(0,0,0,0.60);
+    margin-top: 16px;
+}
+
+/* Header title style */
+.app-title {
+    text-align: center;
+    font-weight: 700;
+    font-size: 32px;
+    letter-spacing: 0.03em;
+    margin: 10px 0 0 0;
+}
+
+/* Small helper text */
+.helper-text {
+    font-size: 0.85rem;
+    color: #6b7280;
+    margin-top: 6px;
+}
+
+/* Tables rounded a bit */
 [data-testid="stDataFrame"], .stTable {
     border-radius: 0.75rem;
     overflow: hidden;
 }
-</style>
-"""
 
-light_css = """
-<style>
-.stApp {
-    background: radial-gradient(circle at top left,
-        #fdfbff 0%,
-        #eef5ff 40%,
-        #e6f7ff 70%,
-        #fdf2ff 100%);
-    color: #111827;
+/* Button full width on small screens */
+@media (max-width: 768px) {
+    button[kind="primary"] {
+        width: 100% !important;
+    }
 }
 </style>
 """
-
-dark_css = """
-<style>
-.stApp {
-    background: radial-gradient(circle at top,
-        #111827 0%,
-        #020617 55%,
-        #000000 100%);
-    color: #e5e7eb;
-}
-</style>
-"""
-
-st.markdown(common_css, unsafe_allow_html=True)
-if st.session_state["theme"] == "light":
-    st.markdown(light_css, unsafe_allow_html=True)
-else:
-    st.markdown(dark_css, unsafe_allow_html=True)
+st.markdown(app_css, unsafe_allow_html=True)
 
 # -------------------------
 # DATABASE SETUP
@@ -231,7 +232,7 @@ def get_feedback_for_section(branch_code, section):
     return df
 
 # -------------------------
-# LOAD CSV DATA
+# LOAD CSV DATA (cached)
 # -------------------------
 
 STUDENT_FILE_CONFIG = [
@@ -361,14 +362,14 @@ def authenticate_fixed_user(username, password, role):
 # -------------------------
 
 def student_login_panel():
-    st.header("Student Login")
+    st.subheader("Student Login")
 
     col1, col2 = st.columns(2)
     with col1:
         regd_no = st.text_input("Register Number")
         dob = st.text_input(
             "Date of Birth (exact as in sheet)",
-            placeholder="e.g. 01-01-2005 or 2005-01-01",
+            placeholder="e.g. 01/01/2005",
         )
     with col2:
         branch_choice = st.selectbox(
@@ -382,6 +383,17 @@ def student_login_panel():
             section_choice = st.selectbox("Section (only for II-CSE)", ["A", "B", "C"])
         else:
             st.write("Section: Not required for this branch")
+
+    # Suggestion message BEFORE login button
+    st.markdown(
+        """
+        <div class="helper-text">
+        If login fails, try swapping the day and month in your date of birth.
+        For example: <b>01/04/2005 → 04/01/2005</b>.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     if st.button("Login as Student"):
         if not regd_no or not dob or branch_choice == "Select":
@@ -592,12 +604,12 @@ def render_feedback_analysis(branch_code, section):
     st.bar_chart(fac_overall_df.set_index("Faculty"))
 
 def hod_panel():
-    st.header("HOD Dashboard")
+    st.subheader("HOD Dashboard")
     branch_code, section = section_selector()
     render_feedback_analysis(branch_code, section)
 
 def principal_panel():
-    st.header("Principal Dashboard")
+    st.subheader("Principal Dashboard")
     branch_code, section = section_selector()
     render_feedback_analysis(branch_code, section)
 
@@ -606,18 +618,18 @@ def principal_panel():
 # -------------------------
 
 def admin_panel():
-    st.header("Admin Panel")
+    st.subheader("Admin Panel")
 
     tab1, tab2, tab3 = st.tabs(
         ["Departments & Uploads", "Edit Questions", "Reset / View Raw Feedback"]
     )
 
     with tab1:
-        st.subheader("Upload New Student / Faculty Lists (CSV)")
+        st.markdown("#### Upload New Student / Faculty Lists (CSV)")
         st.write("Current departments (for info): CSE, CSD, ME, CE, CAI, ECE, EEE")
         st.write("Years: I, II, III, IV | Sections: A, B, C, D (optional)")
 
-        st.markdown("#### Upload Students List (CSV)")
+        st.markdown("##### Upload Students List (CSV)")
         stu_file = st.file_uploader(
             "Upload students_list CSV", type=["csv"], key="stu_upload"
         )
@@ -634,7 +646,7 @@ def admin_panel():
             else:
                 st.error("Please select a file and enter target file name.")
 
-        st.markdown("#### Upload Faculty List (CSV)")
+        st.markdown("##### Upload Faculty List (CSV)")
         fac_file = st.file_uploader(
             "Upload faculty_list CSV", type=["csv"], key="fac_upload"
         )
@@ -701,13 +713,10 @@ def admin_panel():
             )
 
 # -------------------------
-# MAIN APP
+# HEADER (logo + title)
 # -------------------------
 
-def main():
-    init_db()
-
-    # ---------- LOGO + TITLE (CENTERED) ----------
+def render_header():
     if LOGO_PATH.exists():
         logo_bytes = LOGO_PATH.read_bytes()
         logo_b64 = base64.b64encode(logo_bytes).decode("utf-8")
@@ -720,80 +729,111 @@ def main():
                 flex-direction: column;
                 justify-content: center;
                 align-items: center;
-                padding-top: 25px;
-                padding-bottom: 15px;
+                padding-top: 18px;
+                padding-bottom: 10px;
             ">
                 <img src="data:image/png;base64,{logo_b64}"
                      style="
-                        width: 210px;
+                        width: 120px;
                         max-width: 70%;
                         height: auto;
                         border-radius: 16px;
-                        margin-bottom: 12px;
+                        margin-bottom: 8px;
                      " />
-                <h1 style="
-                    text-align: center;
-                    font-weight: 700;
-                    font-size: 32px;
-                    margin: 0;
-                    letter-spacing: 0.03em;
-                ">
-                    Advanced College Feedback System
-                </h1>
+                <div class="app-title">Advanced College Feedback System</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
     else:
-        st.title("Advanced College Feedback System")
-    # ---------------------------------------------
+        st.markdown('<h1 class="app-title">Advanced College Feedback System</h1>', unsafe_allow_html=True)
 
-    role = st.sidebar.radio("Login as", ["Student", "HOD", "Principal", "Admin"])
+# -------------------------
+# LOGIN SCREEN (roles on main page)
+# -------------------------
+
+def login_screen():
+    render_header()
+
+    st.markdown('<div class="login-card">', unsafe_allow_html=True)
+
+    st.subheader("🔐 Login")
+
+    role_choice = st.selectbox(
+        "Select Role",
+        ["Student", "HOD", "Principal", "Admin"],
+        index=0,
+    )
+
+    if role_choice == "Student":
+        student_info = student_login_panel()
+        if student_info:
+            st.session_state["auth_role"] = "Student"
+            st.session_state["student_info"] = student_info
+            st.rerun()
+    else:
+        st.subheader(f"{role_choice} Login")
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        if st.button(f"Login as {role_choice}"):
+            if authenticate_fixed_user(username, password, role_choice):
+                st.session_state["auth_role"] = role_choice
+                st.success("Login successful.")
+                st.rerun()
+            else:
+                st.error("Invalid username or password.")
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# -------------------------
+# MAIN APP
+# -------------------------
+
+def main():
+    init_db()
 
     if "auth_role" not in st.session_state:
         st.session_state["auth_role"] = None
 
-    if role == "Student":
-        if st.session_state["auth_role"] != "Student":
-            student_info = student_login_panel()
-            if student_info:
-                st.session_state["auth_role"] = "Student"
-                st.session_state["student_info"] = student_info
+    if st.session_state["auth_role"] is None:
+        login_screen()
+    else:
+        # Logged-in views
+        render_header()
+
+        role = st.session_state["auth_role"]
+
+        # Logout button on top-right
+        col1, col2 = st.columns([3, 1])
+        with col2:
+            if st.button("Logout"):
+                st.session_state["auth_role"] = None
+                st.session_state.pop("student_info", None)
                 st.rerun()
-        else:
+
+        if role == "Student":
             student_info = st.session_state.get("student_info")
             if not student_info:
                 st.session_state["auth_role"] = None
                 st.rerun()
+            st.markdown('<div class="login-card">', unsafe_allow_html=True)
             student_dashboard(student_info)
+            st.markdown('</div>', unsafe_allow_html=True)
 
-    elif role in ["HOD", "Principal", "Admin"]:
-        if st.session_state["auth_role"] != role:
-            st.subheader(f"{role} Login")
-            username = st.text_input("Username", key=f"{role}_user")
-            password = st.text_input("Password", type="password", key=f"{role}_pass")
-            if st.button(f"Login as {role}"):
-                if authenticate_fixed_user(username, password, role):
-                    st.session_state["auth_role"] = role
-                    st.success("Login successful.")
-                    st.rerun()
-                else:
-                    st.error("Invalid username or password.")
-        else:
-            st.sidebar.success(f"Logged in as {role}")
+        elif role == "HOD":
+            st.markdown('<div class="login-card">', unsafe_allow_html=True)
+            hod_panel()
+            st.markdown('</div>', unsafe_allow_html=True)
 
-            if role == "HOD":
-                hod_panel()
-            elif role == "Principal":
-                principal_panel()
-            elif role == "Admin":
-                admin_panel()
+        elif role == "Principal":
+            st.markdown('<div class="login-card">', unsafe_allow_html=True)
+            principal_panel()
+            st.markdown('</div>', unsafe_allow_html=True)
 
-    if st.session_state.get("auth_role"):
-        if st.sidebar.button("Logout"):
-            st.session_state["auth_role"] = None
-            st.session_state.pop("student_info", None)
-            st.rerun()
+        elif role == "Admin":
+            st.markdown('<div class="login-card">', unsafe_allow_html=True)
+            admin_panel()
+            st.markdown('</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
