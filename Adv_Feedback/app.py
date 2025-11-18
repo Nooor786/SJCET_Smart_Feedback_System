@@ -755,8 +755,6 @@ def render_header():
 def login_screen():
     render_header()
 
-    st.markdown('<div class="login-card">', unsafe_allow_html=True)
-
     st.subheader("🔐 Login")
 
     role_choice = st.selectbox(
@@ -782,8 +780,6 @@ def login_screen():
                 st.rerun()
             else:
                 st.error("Invalid username or password.")
-
-    st.markdown('</div>', unsafe_allow_html=True)
 
 # -------------------------
 # MAIN APP
@@ -816,24 +812,16 @@ def main():
             if not student_info:
                 st.session_state["auth_role"] = None
                 st.rerun()
-            st.markdown('<div class="login-card">', unsafe_allow_html=True)
             student_dashboard(student_info)
-            st.markdown('</div>', unsafe_allow_html=True)
 
         elif role == "HOD":
-            st.markdown('<div class="login-card">', unsafe_allow_html=True)
             hod_panel()
-            st.markdown('</div>', unsafe_allow_html=True)
 
         elif role == "Principal":
-            st.markdown('<div class="login-card">', unsafe_allow_html=True)
             principal_panel()
-            st.markdown('</div>', unsafe_allow_html=True)
 
         elif role == "Admin":
-            st.markdown('<div class="login-card">', unsafe_allow_html=True)
             admin_panel()
-            st.markdown('</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
