@@ -403,8 +403,8 @@ def student_login_panel():
             )
             
             # Add space before the button:
-            st.write("")
-            st.write("")
+        st.write("")
+        st.write("")
 
     if st.button("Login as Student"):
         if not regd_no or not dob or branch_choice == "Select":
