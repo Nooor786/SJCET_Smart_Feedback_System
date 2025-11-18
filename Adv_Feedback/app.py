@@ -387,24 +387,24 @@ def student_login_panel():
     # Suggestion message BEFORE login button
     # Warning message:
         st.markdown(
-            """
-            <div style="
-                color: #ff0000;
-                font-size: 18px;
-                font-weight: 600;
-                margin-top: 8px;
-                margin-bottom: 18px;
-            ">
-                ⚠️ If login fails, try swapping the day and month in your date of birth.
-                <br>For example: <b>01/04/2005 → 04/01/2005</b>.
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-        
-        # Add space before the button:
-        st.write("")
-        st.write("")
+                """
+                <div style="
+                    color: #ff0000;
+                    font-size: 18px;
+                    font-weight: 600;
+                    margin-top: 8px;
+                    margin-bottom: 18px;
+                ">
+                    ⚠️ If login fails, try swapping the day and month in your date of birth.
+                    <br>For example: <b>01/04/2005 → 04/01/2005</b>.
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+            
+            # Add space before the button:
+            st.write("")
+            st.write("")
 
     if st.button("Login as Student"):
         if not regd_no or not dob or branch_choice == "Select":
