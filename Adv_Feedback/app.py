@@ -23,7 +23,7 @@ DB_PATH = BASE_DIR / "feedback.db"
 LOGO_PATH = BASE_DIR / "sjcet_logo.png"
 
 # -------------------------
-# WHITE MOBILE OPTIMIZED UI
+# WHITE + MOBILE OPTIMIZED UI (ALL BLACK TEXT)
 # -------------------------
 
 white_mobile_css = """
@@ -33,8 +33,12 @@ white_mobile_css = """
     background: #ffffff !important;
 }
 
-/* All text black by default */
-html, body, [class*="css"] {
+/* Make basically everything black by default */
+html, body,
+[class*="st-"],
+.stMarkdown, .stTextInput label, .stSelectbox label,
+.stNumberInput label, .stDateInput label,
+label, p, h1, h2, h3, h4, h5, h6, span {
     color: #000000 !important;
 }
 
@@ -43,10 +47,10 @@ section[data-testid="stSidebar"] {
     display: none !important;
 }
 
-/* Main content width - ideal for mobile */
+/* Main content width - ideal for mobile + desktop */
 .block-container {
     max-width: 700px;
-    padding-top: 1rem !important;
+    padding-top: 1.5rem !important;
     padding-bottom: 2rem !important;
     margin-left: auto;
     margin-right: auto;
@@ -59,14 +63,23 @@ input, textarea {
     border: 1px solid #999999 !important;
 }
 
+/* Placeholder text also black (slightly softer) */
+input::placeholder, textarea::placeholder {
+    color: #000000 !important;
+    opacity: 0.8 !important;
+}
+
 /* Dropdown styling */
 [data-baseweb="select"] > div {
     background-color: #ffffff !important;
     color: #000000 !important;
     border: 1px solid #999999 !important;
 }
+[data-baseweb="select"] * {
+    color: #000000 !important;
+}
 
-/* Buttons full-width on mobile */
+/* Buttons full-width on mobile, clean */
 .stButton>button {
     width: 100% !important;
     background-color: #f5f5f5 !important;
@@ -77,7 +90,7 @@ input, textarea {
     font-weight: 600 !important;
 }
 
-/* Brown title */
+/* Brown title (overrides black above) */
 .app-title {
     color: #8B4513 !important;
     font-weight: 800;
@@ -98,6 +111,10 @@ input, textarea {
 
 /* Mobile text size */
 @media (max-width: 768px) {
+    .block-container {
+        padding-left: 0.75rem !important;
+        padding-right: 0.75rem !important;
+    }
     .stButton>button,
     input,
     textarea,
@@ -326,7 +343,7 @@ def authenticate_fixed(username, password, role):
     return username == u and password == p
 
 # -------------------------
-# UI: HEADER
+# HEADER
 # -------------------------
 
 def render_header():
@@ -334,7 +351,7 @@ def render_header():
         logo_b64 = base64.b64encode(LOGO_PATH.read_bytes()).decode()
         st.markdown(
             f"""
-            <div style="text-align:center;">
+            <div style="text-align:center; padding-top: 24px; padding-bottom: 8px;">
                 <img src="data:image/png;base64,{logo_b64}" 
                      style="width:130px; margin-bottom:6px;" />
                 <h1 class="app-title">SJCET Feedback System</h1>
@@ -342,14 +359,14 @@ def render_header():
             """, unsafe_allow_html=True
         )
     else:
-        st.markdown('<h1 class="app-title">SJCET Feedback System</h1>', unsafe_allow_html=True)
+        st.markdown('<h1 class="app-title" style="padding-top:24px;">SJCET Feedback System</h1>', unsafe_allow_html=True)
 
 # -------------------------
 # STUDENT LOGIN
 # -------------------------
 
 def student_login_panel():
-    st.subheader("Student Login")
+    st.markdown("## 🔐 Student Login")
 
     col1, col2 = st.columns(2)
     with col1:
@@ -398,13 +415,12 @@ def student_login_panel():
 # -------------------------
 
 def student_dashboard(info):
-    st.subheader("Student Feedback Panel")
+    st.markdown("## Student Feedback Panel")
     st.write(f"### Hi **{info['name']}**, please give genuine feedback.")
 
     branch = info["branch_code"]
     sec = info["section"]
 
-    # Faculty table
     fac = faculty_df[
         (faculty_df["branch_code"] == branch) &
         (faculty_df["section"].fillna("") == (sec or ""))
@@ -417,7 +433,6 @@ def student_dashboard(info):
         st.warning("No faculty found. Contact admin.")
         return
 
-    # Select faculty
     fname = st.selectbox("Select Faculty", fac["faculty_name"].unique())
     row = fac[fac["faculty_name"] == fname].iloc[0]
     subj = row["subject"]
@@ -449,7 +464,7 @@ def student_dashboard(info):
         st.success("Feedback submitted!")
 
 # -------------------------
-# HOD / PRINCIPAL PANELS
+# HOD / PRINCIPAL
 # -------------------------
 
 def section_selector():
@@ -493,7 +508,8 @@ def render_feedback_analysis(branch, sec):
     results = []
     for _, f in fac.iterrows():
         ff = full[(full["faculty_name"]==f["faculty_name"]) & (full["subject"]==f["subject"])]
-        if ff.empty: continue
+        if ff.empty:
+            continue
         row = {
             "Faculty": f["faculty_name"],
             "Subject": f["subject"],
@@ -510,7 +526,6 @@ def render_feedback_analysis(branch, sec):
     df = pd.DataFrame(results)
     st.dataframe(df)
 
-    # Visuals
     st.write("### Question-wise Average")
     qavg = {}
     for i, (_, qr) in enumerate(questions.iterrows(), 1):
@@ -520,12 +535,12 @@ def render_feedback_analysis(branch, sec):
     st.bar_chart(pd.DataFrame({"avg": qavg}).T)
 
 def hod_panel():
-    st.subheader("HOD Dashboard")
+    st.markdown("## HOD Dashboard")
     b, s = section_selector()
     render_feedback_analysis(b, s)
 
 def principal_panel():
-    st.subheader("Principal Dashboard")
+    st.markdown("## Principal Dashboard")
     b, s = section_selector()
     render_feedback_analysis(b, s)
 
@@ -534,7 +549,7 @@ def principal_panel():
 # -------------------------
 
 def admin_panel():
-    st.subheader("Admin Panel")
+    st.markdown("## Admin Panel")
     tab1, tab2, tab3 = st.tabs(["Uploads", "Edit Questions", "Reset"])
 
     with tab1:
@@ -598,13 +613,13 @@ def admin_panel():
             st.warning("All feedback deleted.")
 
 # -------------------------
-# LOGIN SCREEN (NO SIDEBAR)
+# LOGIN SCREEN
 # -------------------------
 
 def login_screen():
     render_header()
 
-    st.subheader("🔐 Login")
+    st.markdown("## 🔐 Login")
 
     role = st.selectbox("Select Role", ["Student", "HOD", "Principal", "Admin"])
 
@@ -615,7 +630,7 @@ def login_screen():
             st.session_state["student_info"] = info
             st.rerun()
     else:
-        st.subheader(f"{role} Login")
+        st.markdown(f"## {role} Login")
         u = st.text_input("Username")
         p = st.text_input("Password", type="password")
         if st.button(f"Login as {role}"):
@@ -626,7 +641,7 @@ def login_screen():
                 st.error("Invalid credentials.")
 
 # -------------------------
-# MAIN FUNCTION
+# MAIN
 # -------------------------
 
 def main():
@@ -640,7 +655,6 @@ def main():
     else:
         render_header()
 
-        # Logout button full width
         st.write("")
         if st.button("Logout"):
             st.session_state["auth_role"] = None
@@ -655,13 +669,10 @@ def main():
                 st.session_state["auth_role"] = None
                 st.rerun()
             student_dashboard(info)
-
         elif role == "HOD":
             hod_panel()
-
         elif role == "Principal":
             principal_panel()
-
         elif role == "Admin":
             admin_panel()
 
