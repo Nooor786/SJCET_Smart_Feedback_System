@@ -69,13 +69,51 @@ input::placeholder, textarea::placeholder {
     opacity: 0.8 !important;
 }
 
-/* Dropdown styling */
+/* ---------- SELECT / DROPDOWN ---------- */
+
+/* Closed select box */
 [data-baseweb="select"] > div {
     background-color: #ffffff !important;
     color: #000000 !important;
     border: 1px solid #999999 !important;
 }
+
+/* Text inside select */
 [data-baseweb="select"] * {
+    color: #000000 !important;
+}
+
+/* Open dropdown panel background */
+[data-baseweb="popover"],
+[data-baseweb="select"] [role="listbox"] {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+}
+
+/* Each option row */
+[data-baseweb="select"] [role="option"] {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+}
+
+/* Selected / hover option */
+[data-baseweb="select"] [role="option"][aria-selected="true"],
+[data-baseweb="select"] [role="option"]:hover {
+    background-color: #e5e7eb !important;  /* light grey highlight */
+}
+
+/* ---------- FILE UPLOADER ---------- */
+
+/* Drop zone background */
+[data-testid="stFileUploaderDropzone"] {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    border-radius: 8px !important;
+    border: 1px solid #999999 !important;
+}
+
+/* Text & icon inside drop zone */
+[data-testid="stFileUploaderDropzone"] * {
     color: #000000 !important;
 }
 
@@ -90,7 +128,7 @@ input::placeholder, textarea::placeholder {
     font-weight: 600 !important;
 }
 
-/* Brown title (overrides black above) */
+/* Brown title */
 .app-title {
     color: #8B4513 !important;
     font-weight: 800;
@@ -125,6 +163,7 @@ input::placeholder, textarea::placeholder {
 </style>
 """
 st.markdown(white_mobile_css, unsafe_allow_html=True)
+
 
 # -------------------------
 # DATABASE SETUP
