@@ -23,7 +23,7 @@ DB_PATH = BASE_DIR / "feedback.db"
 LOGO_PATH = BASE_DIR / "sjcet_logo.png"
 
 # -------------------------
-# WHITE + MOBILE OPTIMIZED UI (ALL BLACK TEXT)
+# WHITE + MOBILE OPTIMIZED UI (ALL BLACK TEXT, ARROW BROWN)
 # -------------------------
 
 white_mobile_css = """
@@ -78,34 +78,48 @@ input::placeholder, textarea::placeholder {
     border: 1px solid #999999 !important;
 }
 
-/* Text inside select */
+/* Text inside select & sub-elements */
 [data-baseweb="select"] * {
     color: #000000 !important;
 }
 
+/* Dropdown arrow brown */
+[data-baseweb="select"] svg {
+    color: #8B4513 !important;
+    fill: #8B4513 !important;
+}
+
 /* Open dropdown panel background */
 [data-baseweb="popover"],
-[data-baseweb="select"] [role="listbox"] {
+[data-baseweb="select"] div[role="listbox"],
+[data-baseweb="select"] ul[role="listbox"],
+div[role="listbox"] {
     background-color: #ffffff !important;
     color: #000000 !important;
 }
 
 /* Each option row */
-[data-baseweb="select"] [role="option"] {
+[data-baseweb="select"] [role="option"],
+li[role="option"],
+div[role="option"] {
     background-color: #ffffff !important;
     color: #000000 !important;
 }
 
 /* Selected / hover option */
 [data-baseweb="select"] [role="option"][aria-selected="true"],
-[data-baseweb="select"] [role="option"]:hover {
+[data-baseweb="select"] [role="option"]:hover,
+li[role="option"][aria-selected="true"],
+li[role="option"]:hover {
     background-color: #e5e7eb !important;  /* light grey highlight */
+    color: #000000 !important;
 }
 
 /* ---------- FILE UPLOADER ---------- */
 
 /* Drop zone background */
-[data-testid="stFileUploaderDropzone"] {
+[data-testid="stFileUploaderDropzone"],
+[data-testid="stFileUploaderDropzone"] > div {
     background-color: #ffffff !important;
     color: #000000 !important;
     border-radius: 8px !important;
@@ -117,10 +131,18 @@ input::placeholder, textarea::placeholder {
     color: #000000 !important;
 }
 
-/* Buttons full-width on mobile, clean */
+/* ---------- TABS ---------- */
+[data-baseweb="tab"] {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+}
+
+/* Active tab underline stays as default (red), text black */
+
+/* Buttons full-width on mobile, clean white */
 .stButton>button {
     width: 100% !important;
-    background-color: #f5f5f5 !important;
+    background-color: #ffffff !important;
     color: #000000 !important;
     border-radius: 8px !important;
     border: 1px solid #999999 !important;
@@ -163,7 +185,6 @@ input::placeholder, textarea::placeholder {
 </style>
 """
 st.markdown(white_mobile_css, unsafe_allow_html=True)
-
 
 # -------------------------
 # DATABASE SETUP
@@ -405,7 +426,8 @@ def render_header():
 # -------------------------
 
 def student_login_panel():
-    st.markdown("## 🔐 Student Login")
+    st.markdown("## 🔐 Login")
+    st.markdown("### Student Login")
 
     col1, col2 = st.columns(2)
     with col1:
