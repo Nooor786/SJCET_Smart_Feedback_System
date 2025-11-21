@@ -530,7 +530,7 @@ def render_feedback_analysis(branch, sec, view_mode):
     fac_overall_df = fac_summary_df[["Faculty","Subject","Department","Responses","Overall Avg","Overall %","Emoji"]].copy()
 
     # ---------------- VIEW SWITCHING ----------------
-    if view_mode == "Faculty summary (table + emojis)":
+    if view_mode == "Faculty summary ":
         st.write("### Faculty-wise Summary 😍🙂😐😣")
         st.dataframe(fac_summary_df)
 
@@ -538,7 +538,7 @@ def render_feedback_analysis(branch, sec, view_mode):
         st.write("### Question-wise Average (Section Level)")
         st.dataframe(q_avg_df)
 
-    elif view_mode == "Overall faculty rating (horizontal bar)":
+    elif view_mode == "Overall faculty rating ( bar)":
         st.write("### Overall Faculty Rating (Horizontal Bar)")
         if not fac_overall_df.empty:
             chart_df = fac_overall_df.sort_values("Overall Avg", ascending=True)
@@ -559,46 +559,8 @@ def render_feedback_analysis(branch, sec, view_mode):
         else:
             st.info("No faculty overall data available to plot.")
 
-    elif view_mode == "3D faculty rating matrix":
-        st.write("### 3D Surface – Faculty vs Questions")
-        # Build Z matrix :: faculties x questions
-        fac_names = fac_summary_df["Faculty"].tolist()
-        q_names = [f"Q{i}" for i in range(1, nq+1)]
-        z = []
-        for _, r in fac_summary_df.iterrows():
-            row_vals = []
-            for i in range(1, nq+1):
-                row_vals.append(r.get(f"Q{i}_avg", 0))
-            z.append(row_vals)
 
-        if z:
-            fig = go.Figure(
-                data=[
-                    go.Surface(
-                        z=z,
-                        x=list(range(1, nq+1)),
-                        y=list(range(1, len(fac_names)+1)),
-                        colorscale="Viridis",
-                    )
-                ]
-            )
-            fig.update_layout(
-                scene=dict(
-                    xaxis_title="Question Index",
-                    yaxis_title="Faculty Index",
-                    zaxis_title="Average Score",
-                    xaxis=dict(
-                        tickmode="array",
-                        tickvals=list(range(1, nq+1)),
-                    ),
-                ),
-                margin=dict(l=10, r=10, t=30, b=10),
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("Not enough data for 3D visualization.")
-
-    elif view_mode == "Overall faculty percentage (pie chart)":
+    elif view_mode == "Overall faculty percentage ":
         st.write("### Overall Faculty Feedback Percentage (Pie)")
         if not fac_overall_df.empty:
             fig = px.pie(
@@ -626,7 +588,7 @@ def render_feedback_analysis(branch, sec, view_mode):
         st.write("#### ⚠️ Bottom 3 Faculty")
         st.dataframe(bottom3)
 
-    elif view_mode == "Raw feedback records (no student IDs)":
+    elif view_mode == "Raw feedback records ":
         st.write("### Raw Feedback Entries (Student Info Hidden)")
         fb_copy = fb.copy()
         # Remove student register number from display for privacy
