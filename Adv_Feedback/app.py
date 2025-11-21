@@ -369,7 +369,7 @@ def student_login_panel():
             st.error("Please select branch.")
             return None
         user = authenticate_student(reg, dob, branch, sec)
-        if not user:
+        if user is None:
             st.error("Invalid Register Number / DOB / Section")
             return None
         st.success("Login successful.")
