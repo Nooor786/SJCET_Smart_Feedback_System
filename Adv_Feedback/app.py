@@ -229,7 +229,7 @@ def feedback_exists(reg, branch, sec, fac, sub):
     conn.close()
     return count > 0
 
-# ⭐ FIXED — REQUIRED FOR HOD/PRINCIPAL
+# REQUIRED FOR HOD/PRINCIPAL
 def get_feedback_for_section(branch, section):
     conn = get_connection()
     df = pd.read_sql_query("""
@@ -266,7 +266,8 @@ def load_students():
     rows = []
     for b, s, f in STUDENT_FILE_CONFIG:
         p = STUDENTS_DIR / f
-        if not p.exists(): continue
+        if not p.exists():
+            continue
         df = pd.read_csv(p)
         df["branch_code"] = b
         df["section"] = s
@@ -281,7 +282,8 @@ def load_faculty():
     rows = []
     for b, s, f in FACULTY_FILE_CONFIG:
         p = FACULTY_DIR / f
-        if not p.exists(): continue
+        if not p.exists():
+            continue
         df = pd.read_csv(p, encoding="latin1")
         df["branch_code"] = b
         df["section"] = s
@@ -420,7 +422,7 @@ def student_dashboard(info):
         st.success("Thank you! Feedback recorded.")
 
 # -----------------------------
-# HOD / PRINCIPAL
+# HOD / PRINCIPAL HELPERS
 # -----------------------------
 def section_selector():
     col1, col2 = st.columns(2)
@@ -430,58 +432,160 @@ def section_selector():
         sec = st.selectbox("Select Section", ["A","B","C"]) if branch=="II-CSE" else None
     return branch, sec
 
-def render_feedback_analysis(branch, sec):
+def render_feedback_analysis(branch, sec, view_mode):
+    # Faculty list for this section
     f = faculty_df[
         (faculty_df["branch_code"] == branch) &
         (faculty_df["section"].fillna("") == (sec or ""))
     ]
 
-    st.dataframe(f[["sno","faculty_name","subject","department"]])
+    st.write("### Faculty in this Branch & Section")
+    st.dataframe(f[["sno", "faculty_name", "subject", "department"]])
 
     fb = get_feedback_for_section(branch, sec)
     if fb.empty:
-        st.info("No feedback yet.")
+        st.info("No feedback submitted yet for this branch/section.")
         return
 
     qs = get_questions()
     nq = len(qs)
 
+    # Expand q_scores to Q1..Qn columns
     labels = [f"Q{i}" for i in range(1, nq+1)]
     def exp(row):
-        arr = [int(x) for x in row["q_scores"].split(",")]
-        while len(arr) < nq: arr.append(None)
+        arr = [int(x) for x in str(row["q_scores"]).split(",")]
+        while len(arr) < nq:
+            arr.append(None)
         return pd.Series(arr, index=labels)
 
     fb_full = pd.concat([fb, fb.apply(exp, axis=1)], axis=1)
 
-    results = []
+    # Build faculty summary table (per-faculty averages)
+    summary_rows = []
     for _, prof in f.iterrows():
         d = fb_full[
             (fb_full["faculty_name"] == prof["faculty_name"]) &
             (fb_full["subject"] == prof["subject"])
         ]
-        if d.empty: continue
+        if d.empty:
+            continue
 
-        out = {
+        row = {
             "Faculty": prof["faculty_name"],
             "Subject": prof["subject"],
-            "Responses": len(d)
+            "Department": prof["department"],
+            "Responses": len(d),
         }
         for i in range(1, nq+1):
-            out[f"Q{i}_avg"] = round(d[f"Q{i}"].mean(), 2)
-        results.append(out)
+            row[f"Q{i}_avg"] = round(d[f"Q{i}"].mean(), 2)
+        summary_rows.append(row)
 
-    st.dataframe(pd.DataFrame(results))
+    if not summary_rows:
+        st.info("No feedback entries matching the listed faculty.")
+        return
 
+    fac_summary_df = pd.DataFrame(summary_rows)
+
+    # Question-wise average (section level)
+    q_rows = []
+    for i, (_, qrow) in enumerate(qs.iterrows(), start=1):
+        col = f"Q{i}_avg"
+        if col in fac_summary_df.columns:
+            q_rows.append({
+                "Question": qrow["question_text"],
+                "Average Score": fac_summary_df[col].mean()
+            })
+    q_avg_df = pd.DataFrame(q_rows)
+
+    # Faculty overall rating
+    q_cols = [c for c in fac_summary_df.columns if c.startswith("Q") and c.endswith("_avg")]
+    fac_overall_df = fac_summary_df[["Faculty", "Subject", "Department", "Responses"]].copy()
+    if q_cols:
+        fac_overall_df["Overall Avg"] = fac_summary_df[q_cols].mean(axis=1)
+    else:
+        fac_overall_df["Overall Avg"] = 0
+
+    # ---------------- VIEW SWITCHING ----------------
+    if view_mode == "Faculty summary table":
+        st.write("### Faculty-wise Summary (All Questions)")
+        st.dataframe(fac_summary_df)
+
+    elif view_mode == "Question-wise average (table)":
+        st.write("### Question-wise Average (Section Level)")
+        st.dataframe(q_avg_df)
+
+    elif view_mode == "Question-wise average (bar chart)":
+        st.write("### Question-wise Average (Bar Chart)")
+        if not q_avg_df.empty:
+            st.bar_chart(q_avg_df.set_index("Question"))
+        else:
+            st.info("No question averages available to plot.")
+
+    elif view_mode == "Faculty overall rating (bar chart)":
+        st.write("### Overall Rating per Faculty")
+        if not fac_overall_df.empty:
+            chart_df = fac_overall_df.set_index("Faculty")[["Overall Avg"]]
+            st.bar_chart(chart_df)
+        else:
+            st.info("No faculty overall data available to plot.")
+
+    elif view_mode == "Top & Bottom 3 Faculty":
+        st.write("### Top & Bottom 3 Faculty (by Overall Avg)")
+        df_sorted = fac_overall_df.sort_values("Overall Avg", ascending=False)
+        top3 = df_sorted.head(3)
+        bottom3 = df_sorted.tail(3)
+
+        st.write("#### Top 3 Faculty")
+        st.dataframe(top3)
+
+        st.write("#### Bottom 3 Faculty")
+        st.dataframe(bottom3)
+
+    elif view_mode == "Raw feedback records":
+        st.write("### Raw Feedback Entries (All Students)")
+        st.dataframe(fb)
+
+# -----------------------------
+# HOD PANEL
+# -----------------------------
 def hod_panel():
     st.markdown("### HOD Dashboard")
     branch, sec = section_selector()
-    render_feedback_analysis(branch, sec)
 
+    view_mode = st.selectbox(
+        "Select Feedback View",
+        [
+            "Faculty summary table",
+            "Question-wise average (table)",
+            "Question-wise average (bar chart)",
+            "Faculty overall rating (bar chart)",
+            "Top & Bottom 3 Faculty",
+            "Raw feedback records",
+        ]
+    )
+
+    render_feedback_analysis(branch, sec, view_mode)
+
+# -----------------------------
+# PRINCIPAL PANEL
+# -----------------------------
 def principal_panel():
     st.markdown("### Principal Dashboard")
     branch, sec = section_selector()
-    render_feedback_analysis(branch, sec)
+
+    view_mode = st.selectbox(
+        "Select Feedback View",
+        [
+            "Faculty summary table",
+            "Question-wise average (table)",
+            "Question-wise average (bar chart)",
+            "Faculty overall rating (bar chart)",
+            "Top & Bottom 3 Faculty",
+            "Raw feedback records",
+        ]
+    )
+
+    render_feedback_analysis(branch, sec, view_mode)
 
 # -----------------------------
 # ADMIN PANEL
@@ -597,7 +701,11 @@ def main():
     role = st.session_state["auth_role"]
 
     if role == "Student":
-        student_dashboard(st.session_state["student_info"])
+        student_info = st.session_state.get("student_info")
+        if not student_info:
+            st.session_state["auth_role"] = None
+            st.rerun()
+        student_dashboard(student_info)
 
     elif role == "HOD":
         hod_panel()
