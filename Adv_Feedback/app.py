@@ -9,6 +9,7 @@ import sqlite3
 from pathlib import Path
 from datetime import datetime
 import base64
+from io import BytesIO
 
 import plotly.express as px
 import plotly.graph_objects as go
@@ -132,6 +133,34 @@ input::placeholder, textarea::placeholder {
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
+
+# -----------------------------
+# EXPORT HELPERS
+# -----------------------------
+def render_export_buttons(df: pd.DataFrame, base_filename: str):
+    """Show Export to Excel/CSV and simple PDF buttons for a DataFrame."""
+    if df is None or df.empty:
+        return
+
+    csv_data = df.to_csv(index=False).encode("utf-8")
+    pdf_text = df.to_string(index=False)
+    pdf_bytes = pdf_text.encode("utf-8")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.download_button(
+            label="⬇️ Export to Excel (CSV)",
+            data=csv_data,
+            file_name=f"{base_filename}.csv",
+            mime="text/csv",
+        )
+    with col2:
+        st.download_button(
+            label="⬇️ Export as PDF (simple)",
+            data=pdf_bytes,
+            file_name=f"{base_filename}.pdf",
+            mime="application/pdf",
+        )
 
 # -----------------------------
 # DATABASE
@@ -453,25 +482,20 @@ def section_selector():
         sec = st.selectbox("Select Section", ["A","B","C"]) if branch=="II-CSE" else None
     return branch, sec
 
-def render_feedback_analysis(branch, sec, view_mode):
-    # Faculty list for this section
+def build_faculty_summary_for_section(branch, sec):
+    """Compute faculty summary, question-wise averages, and overall ratings for a section."""
     f = faculty_df[
         (faculty_df["branch_code"] == branch) &
         (faculty_df["section"].fillna("") == (sec or ""))
     ]
 
-    st.write("### Faculty in this Branch & Section")
-    st.dataframe(f[["sno", "faculty_name", "subject", "department"]])
-
     fb = get_feedback_for_section(branch, sec)
-    if fb.empty:
-        st.info("No feedback submitted yet for this branch/section.")
-        return
+    if fb.empty or f.empty:
+        return f, fb, None, None, None
 
     qs = get_questions()
     nq = len(qs)
 
-    # Expand q_scores to Q1..Qn columns
     labels = [f"Q{i}" for i in range(1, nq+1)]
     def exp(row):
         arr = [int(x) for x in str(row["q_scores"]).split(",")]
@@ -481,7 +505,6 @@ def render_feedback_analysis(branch, sec, view_mode):
 
     fb_full = pd.concat([fb, fb.apply(exp, axis=1)], axis=1)
 
-    # Build faculty summary table (per-faculty averages)
     summary_rows = []
     for _, prof in f.iterrows():
         d = fb_full[
@@ -505,44 +528,58 @@ def render_feedback_analysis(branch, sec, view_mode):
             q_avgs.append(avg_i)
         overall = sum(q_avgs) / len(q_avgs) if q_avgs else 0
         row["Overall Avg"] = round(overall, 2)
-        row["Overall %"] = round((overall / 10) * 100, 1)  # percentage
+        row["Overall %"] = round((overall / 10) * 100, 1)
         row["Emoji"] = score_to_emoji(overall)
         summary_rows.append(row)
 
     if not summary_rows:
-        st.info("No feedback entries matching the listed faculty.")
-        return
+        return f, fb, None, None, None
 
     fac_summary_df = pd.DataFrame(summary_rows)
 
-    # Question-wise average (section level)
-    q_rows = []
+    # Question-wise average
+    qs_rows = []
     for i, (_, qrow) in enumerate(qs.iterrows(), start=1):
         col = f"Q{i}_avg"
         if col in fac_summary_df.columns:
-            q_rows.append({
+            qs_rows.append({
                 "Question": qrow["question_text"],
                 "Average Score": fac_summary_df[col].mean()
             })
-    q_avg_df = pd.DataFrame(q_rows)
+    q_avg_df = pd.DataFrame(qs_rows)
 
-    # Faculty overall rating table
-    fac_overall_df = fac_summary_df[["Faculty","Subject","Department","Responses","Overall Avg","Overall %","Emoji"]].copy()
+    fac_overall_df = fac_summary_df[[
+        "Faculty","Subject","Department","Responses","Overall Avg","Overall %","Emoji"
+    ]].copy()
 
-    # ---------------- VIEW SWITCHING ----------------
-    if view_mode == "Faculty summary ":
+    return f, fb, fac_summary_df, q_avg_df, fac_overall_df
+
+def render_feedback_analysis(branch, sec, view_mode):
+    f, fb, fac_summary_df, q_avg_df, fac_overall_df = build_faculty_summary_for_section(branch, sec)
+
+    st.write("### Faculty in this Branch & Section")
+    st.dataframe(f[["sno", "faculty_name", "subject", "department"]])
+
+    if fb.empty or fac_summary_df is None:
+        st.info("No feedback submitted yet for this branch/section.")
+        return
+
+    # ------- VIEW SWITCHING -------
+    if view_mode == "Faculty summary":
         st.write("### Faculty-wise Summary 😍🙂😐😣")
         st.dataframe(fac_summary_df)
+        render_export_buttons(fac_summary_df, "faculty_summary")
 
     elif view_mode == "Question-wise average (table)":
         st.write("### Question-wise Average (Section Level)")
         st.dataframe(q_avg_df)
+        render_export_buttons(q_avg_df, "question_wise_average")
 
-    elif view_mode == "Overall faculty rating ( bar)":
+    elif view_mode == "Overall faculty rating (horizontal bar)":
         st.write("### Overall Faculty Rating (Horizontal Bar)")
         if not fac_overall_df.empty:
             chart_df = fac_overall_df.sort_values("Overall Avg", ascending=True)
-            chart_df["Label"] = chart_df["Faculty"] + " (" + chart_df["Emoji"] + ")"
+            chart_df["Label"] = chart_df["Faculty"] + " " + chart_df["Emoji"]
             fig = px.bar(
                 chart_df,
                 x="Overall Avg",
@@ -556,22 +593,24 @@ def render_feedback_analysis(branch, sec, view_mode):
                 margin=dict(l=10,r=10,t=30,b=10),
             )
             st.plotly_chart(fig, use_container_width=True)
+            render_export_buttons(fac_overall_df, "overall_faculty_rating")
         else:
             st.info("No faculty overall data available to plot.")
 
-
-    elif view_mode == "Overall faculty percentage ":
+    elif view_mode == "Overall faculty percentage (pie chart)":
         st.write("### Overall Faculty Feedback Percentage (Pie)")
         if not fac_overall_df.empty:
             fig = px.pie(
                 fac_overall_df,
                 names="Faculty",
                 values="Overall %", 
-                hover_data=["Subject","Department"],
+                hover_data=["Subject","Department","Emoji"],
                 hole=0.3,
             )
             fig.update_traces(textinfo="percent+label")
             st.plotly_chart(fig, use_container_width=True)
+            render_export_buttons(fac_overall_df[["Faculty","Overall %","Subject","Department","Emoji"]],
+                                  "overall_faculty_percentage")
         else:
             st.info("No faculty percentage data to display.")
 
@@ -588,13 +627,15 @@ def render_feedback_analysis(branch, sec, view_mode):
         st.write("#### ⚠️ Bottom 3 Faculty")
         st.dataframe(bottom3)
 
-    elif view_mode == "Raw feedback records ":
+        render_export_buttons(df_sorted, "top_bottom_faculty")
+
+    elif view_mode == "Raw feedback records":
         st.write("### Raw Feedback Entries (Student Info Hidden)")
         fb_copy = fb.copy()
-        # Remove student register number from display for privacy
         if "student_regd_no" in fb_copy.columns:
             fb_copy = fb_copy.drop(columns=["student_regd_no"])
         st.dataframe(fb_copy)
+        render_export_buttons(fb_copy, "raw_feedback")
 
 # -----------------------------
 # HOD PANEL
@@ -606,13 +647,12 @@ def hod_panel():
     view_mode = st.selectbox(
         "Select Feedback View",
         [
-            "Faculty summary (table + emojis)",
+            "Faculty summary",
             "Question-wise average (table)",
             "Overall faculty rating (horizontal bar)",
-            "3D faculty rating matrix",
             "Overall faculty percentage (pie chart)",
             "Top & Bottom 3 Faculty",
-            "Raw feedback records (no student IDs)",
+            "Raw feedback records",
         ]
     )
 
@@ -625,20 +665,59 @@ def principal_panel():
     st.markdown("### Principal Dashboard")
     branch, sec = section_selector()
 
-    view_mode = st.selectbox(
-        "Select Feedback View",
-        [
-            "Faculty summary (table + emojis)",
-            "Question-wise average (table)",
-            "Overall faculty rating (horizontal bar)",
-            "3D faculty rating matrix",
-            "Overall faculty percentage (pie chart)",
-            "Top & Bottom 3 Faculty",
-            "Raw feedback records (no student IDs)",
+    f, fb, fac_summary_df, q_avg_df, fac_overall_df = build_faculty_summary_for_section(branch, sec)
+
+    st.write("### Faculty in this Branch & Section")
+    st.dataframe(f[["sno","faculty_name","subject","department"]])
+
+    if fb.empty or fac_overall_df is None:
+        st.info("No feedback submitted yet for this branch/section.")
+        return
+
+    # 1) Overall faculty percentage (pie)
+    st.write("### Overall Faculty Feedback Percentage (Pie)")
+    fig_pie = px.pie(
+        fac_overall_df,
+        names="Faculty",
+        values="Overall %",
+        hover_data=["Subject","Department","Emoji"],
+        hole=0.35,
+    )
+    fig_pie.update_traces(textinfo="percent+label")
+    st.plotly_chart(fig_pie, use_container_width=True)
+
+    # 2) Overall faculty ratings table (unique view with Plotly Table)
+    st.write("### Overall Faculty Ratings Table (with Emojis)")
+
+    fig_table = go.Figure(
+        data=[
+            go.Table(
+                header=dict(
+                    values=["Faculty", "Subject", "Department", "Responses", "Overall Avg", "Overall %", "Mood"],
+                    fill_color="#f0e6dd",
+                    align="left"
+                ),
+                cells=dict(
+                    values=[
+                        fac_overall_df["Faculty"],
+                        fac_overall_df["Subject"],
+                        fac_overall_df["Department"],
+                        fac_overall_df["Responses"],
+                        fac_overall_df["Overall Avg"],
+                        fac_overall_df["Overall %"],
+                        fac_overall_df["Emoji"],
+                    ],
+                    fill_color="#ffffff",
+                    align="left"
+                ),
+            )
         ]
     )
+    fig_table.update_layout(margin=dict(l=10,r=10,t=30,b=10))
+    st.plotly_chart(fig_table, use_container_width=True)
 
-    render_feedback_analysis(branch, sec, view_mode)
+    # Export buttons for principal’s combined overall table
+    render_export_buttons(fac_overall_df, "principal_overall_faculty")
 
 # -----------------------------
 # ADMIN PANEL
@@ -694,10 +773,11 @@ def admin_panel():
         conn = get_connection()
         df = pd.read_sql("SELECT * FROM feedback", conn)
         conn.close()
-        # Hide student_regd_no here as well for safety
         if "student_regd_no" in df.columns:
             df = df.drop(columns=["student_regd_no"])
         st.dataframe(df)
+
+        render_export_buttons(df, "admin_raw_feedback")
 
         if st.button("RESET ALL FEEDBACK"):
             conn = get_connection()
